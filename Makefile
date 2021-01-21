@@ -1,6 +1,5 @@
 NAME := Game
 IN := in
-OUT := out
 
 .PHONY: run
 

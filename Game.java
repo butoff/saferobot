@@ -10,8 +10,6 @@ public class Game {
     final int width;
     final int height;
 
-    int direction;
-
     public static void main(String[] args) {
         Game g = new Game(System.in);
         g.explore();
@@ -57,55 +55,62 @@ public class Game {
     void explore() {
         for (Cell b : bases) {
             for (int d = 0; d < 4; d++) {
-                direction = d;
-                Cell cur = b;
-                while (cur != null)
-                    cur = next(cur);
+                visit(b, d);
             }
         }
     }
 
-    Cell next(Cell current) {
-        int h = current.h;
-        int w = current.w;
+    Cell at(Cell c, int direction) {
+        int h = c.h;
+        int w = c.w;
         switch (direction) {
-            case 0: h--; break;
-            case 1: w--; break;
-            case 2: h++; break;
-            case 3: w++; break;
+            case 0: return at(h-1, w);
+            case 1: return at(h, w-1);
+            case 2: return at(h+1, w);
+            case 3: return at(h, w+1);
+            default: throw new IllegalStateException("wtf, direction = " + direction);
         }
-        Cell c = at(h, w);
-        if (c.type == Type.BASE)
-            return null;
-        if (c.type != Type.WALL) {
-            c.markDirectionAsLeadingToBase(opposite(direction));
-            return c;
-        }
-        if (current.wallCount() == 3) {
-            current.markDirectionAsLeadingToBase(direction);
-            direction = opposite(direction);
-            return current;
-        }
-        if (current.wallCount() == 2) {
-            for (int d = 0; d < 4; d++) {
-                if (current.directions[d] != Direction.WALL && d != opposite(direction)) {
-                    direction = d;
-                    return next(current);
-                }
+    }
+
+    void visit(Cell current, int direction) {
+        Cell f = at(current, direction);
+        Cell l = at(current, left(direction));
+        Cell r = at(current, right(direction));
+
+        if (current.directions[direction] == Direction.LEADS_TO_BASE || current.directions[direction] == Direction.WALL) {
+            if (l.type == Type.WALL && r.type == Type.FREE) {
+                r.markDirectionAsLeadingToBase(left(direction));
+                visit(r, right(direction));
             }
-            throw new IllegalStateException("wtf, it's a corner!");
+            if (r.type == Type.WALL && l.type == Type.FREE) {
+                l.markDirectionAsLeadingToBase(right(direction));
+                visit(l, left(direction));
+            }
         }
-        // wall, but not a corner or stale
-        if (current.hasUnexploredDirections())
-                return null;
-        // all directions are explored and leads to base
-        if (current.type != Type.BASE)
+        if (f.type == Type.BASE)
+            return;
+        if (f.type != Type.WALL) {
+            f.markDirectionAsLeadingToBase(opposite(direction));
+            visit(f, direction);
+        } else if (current.wallCount() == 3) {
+            direction = opposite(direction);
+            visit(current, direction);
+        } else if (!current.hasUnexploredDirections() && current.type != Type.BASE) {
+            // all directions are explored and leads to base
             current.type = Type.SAFE;
-        return null;
+        }
     }
 
     static int opposite(int direction) {
         return (direction + 2) % 4;
+    }
+
+    static int left(int direction) {
+        return (direction + 3) % 4;
+    }
+
+    static int right(int direction) {
+        return (direction + 1) % 4;
     }
 
     List<Cell> listFrom(String s) {
@@ -143,7 +148,7 @@ public class Game {
             int wc = 0;
             for (int i = 0; i < 4; i++)
                 if (directions[i] == Direction.WALL)
-                    wc ++;
+                    wc++;
             return wc;
         }
 
